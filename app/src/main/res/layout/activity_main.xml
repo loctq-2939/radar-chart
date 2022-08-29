@@ -14,8 +14,8 @@
         />-->
 
     <com.example.myapplication.MyCanvasView
-        android:layout_width="400dp"
-        android:layout_height="400dp"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
         android:layout_gravity="center" />
 
 </FrameLayout>
