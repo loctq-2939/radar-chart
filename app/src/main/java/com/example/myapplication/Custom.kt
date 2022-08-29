@@ -33,7 +33,7 @@ class MyCanvasView @JvmOverloads constructor(
     private val webBoldPaint = Paint().apply {
         isAntiAlias = false                   // pass true does not make change
         color = webColor ?: Color.LTGRAY
-        strokeWidth = 4f
+        strokeWidth = 5f
         style = Paint.Style.STROKE
     }
 
@@ -44,9 +44,19 @@ class MyCanvasView @JvmOverloads constructor(
         style = Paint.Style.STROKE
     }
 
+    private val textPaint = Paint().apply {
+        isAntiAlias = false                   // pass true does not make change
+        color = Color.BLACK
+        style = Paint.Style.FILL
+        textSize = textSizeParam ?: 20f
+        textAlign = Paint.Align.CENTER
+        setPadding(0,0,0, 20)
+    }
+
     val line = 10
     var widthView = 0f
     var heightView = 0f
+    var textSizeParam: Float? = null
 
     init {
         val typeArray = context.obtainStyledAttributes(
@@ -55,6 +65,7 @@ class MyCanvasView @JvmOverloads constructor(
 
         attrs?.let {
             widthView = typeArray.getDimension(R.styleable.MyCanvasView_size, 0f)
+            textSizeParam = typeArray.getDimension(R.styleable.MyCanvasView_text_size, 0f)
         }
 
         typeArray.recycle()
@@ -89,6 +100,32 @@ class MyCanvasView @JvmOverloads constructor(
 
         canvas.drawPath(p, webBoldPaint)
         canvas.drawPath(p1, webThinPaint)
+
+        // TODO: params text and point, constant distance
+        (midX to midY - defaultPointFirst - (pointCenter * line) - extrasDistance).apply {
+            canvas.drawText("価格", this.first, this.second - 30, textPaint)
+            canvas.drawText("4.0", this.first, this.second - 5, textPaint)
+        }
+
+        (midX + defaultLineFirst.first + (pointCenter * line) - extrasDistance to midY + defaultLineFirst.second - (pointCenterY * line) - extrasDistance).apply {
+            canvas.drawText("見た目", this.first + 20, this.second - 30, textPaint)
+            canvas.drawText("4.5", this.first + 20, this.second - 5, textPaint)
+        }
+
+        (midX + defaultLineSecond.first + (pointBotX * line) - extrasDistance to midY + defaultLineSecond.second + (pointBotY * line)).apply {
+            canvas.drawText("接客", this.first + 20, this.second + 20, textPaint)
+            canvas.drawText("1.5", this.first + 20, this.second + 45, textPaint)
+        }
+
+        (midX - defaultLineThird.first - (pointBotX * line) + extrasDistance to midY + defaultLineThird.second + (pointBotY * line) + extrasDistance).apply {
+            canvas.drawText("居心地", this.first, this.second + 20, textPaint)
+            canvas.drawText("3.0", this.first, this.second + 45 , textPaint)
+        }
+
+        (midX - defaultLineFourth.first - (pointCenter * line) + extrasDistance to midY + defaultLineFourth.second - (pointCenterY * line) - extrasDistance).apply {
+            canvas.drawText("価格", this.first - 20, this.second - 30, textPaint)
+            canvas.drawText("4.0", this.first - 20, this.second - 5, textPaint)
+        }
     }
 
     private fun drawYAxis(midX: Float, midY: Float) {
@@ -103,6 +140,7 @@ class MyCanvasView @JvmOverloads constructor(
             midY + defaultLineFirst.second - (pointCenterY * line) - extrasDistance
 
         )
+
 
         //line 5h
         p.moveTo(midX, midY)
@@ -158,12 +196,12 @@ class MyCanvasView @JvmOverloads constructor(
     }
 
     companion object {
-        const val defaultPointFirst = 60
+        const val defaultPointFirst = 25
         const val extrasDistance = 2
 
-        val defaultLineFirst: Pair<Int, Int> = Pair(55, -17)
-        val defaultLineSecond: Pair<Int, Int> = Pair(30, 45)
-        val defaultLineThird: Pair<Int, Int> = Pair(30, 45)
-        val defaultLineFourth: Pair<Int, Int> = Pair(55, -17)
+        val defaultLineFirst: Pair<Int, Int> = Pair(25, -10)
+        val defaultLineSecond: Pair<Int, Int> = Pair(15, 20)
+        val defaultLineThird: Pair<Int, Int> = Pair(15, 20)
+        val defaultLineFourth: Pair<Int, Int> = Pair(25, -10)
     }
 }
