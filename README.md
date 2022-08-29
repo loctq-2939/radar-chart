@@ -1,2 +1,3 @@
 # radar-chart
-![Screen Shot 2022-08-26 at 17 10 34](https://user-images.githubusercontent.com/99459511/186881742-a51ef602-e729-4001-9e68-30b91c4c592b.png)
+
+![Screen Shot 2022-08-29 at 10 19 33](https://user-images.githubusercontent.com/99459511/187116387-58e600f8-b32f-4de7-98c6-3c1074c09534.png)
