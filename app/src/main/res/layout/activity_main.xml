@@ -13,11 +13,12 @@
         android:src="@drawable/ic_group_1744"
         />-->
 
-    <com.example.myapplication.MyCanvasView
+    <com.example.myapplication.MyRadarChartView
         android:id="@+id/radar"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_gravity="center"
+        app:text_center_size="14dp"
         app:text_size="12sp"
         app:text_color="#222222"
         app:data_color="#FBBF2B"

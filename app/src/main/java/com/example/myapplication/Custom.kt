@@ -9,30 +9,37 @@ import android.util.AttributeSet
 import android.view.View
 import kotlin.math.min
 
-class MyCanvasView @JvmOverloads constructor(
+class MyRadarChartView @JvmOverloads constructor(
     mContext: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
 ) : View(mContext, attrs, defStyleAttr) {
 
-    private var p = Path() // strokePath
-    private var p1 = Path()
+    companion object {
+        const val MAGICAL_CORNER = 270
+        const val yLineNumber = 5
+        const val xLineNumber = 10
+        const val maxValue = 5f
+    }
+
+
     private var size = 300
-    val textLineSpace = 1.4f
-    val line = 10
-    val maxValue = 5
-    private var yLineSpace = ((size * 0.4) / line).toFloat()
+    private val textLineSpace = 1.5f
+    private var yLineSpace = ((size * 0.4) / xLineNumber).toFloat()
     private var webColor = Color.LTGRAY
     private var labelTop = ""
     private var labelTopRight = ""
     private var labelBottomRight = ""
     private var labelBottomLeft = ""
     private var labelTopLeft = ""
+    private var centerLabel = ""
     private var data: List<Float>? = null
+    private var centerValue: Float? = null
     private var dataWidth = 5f
     private var webWidth = 2f
     private var dataColor = Color.CYAN
     private var textColor = Color.BLACK
+    private val corner = 360/ yLineNumber
 
     private val webBoldPaint = Paint().apply {
         isAntiAlias = false                   // pass true does not make change
@@ -76,6 +83,15 @@ class MyCanvasView @JvmOverloads constructor(
         setPadding(0, 0, 0, 20)
     }
 
+    private val centerTextPaint = Paint().apply {
+        isAntiAlias = false                   // pass true does not make change
+        color = Color.BLACK
+        style = Paint.Style.FILL
+        textSize = 20f
+        textAlign = Paint.Align.CENTER
+        setPadding(0, 0, 0, 20)
+    }
+
     private val textBoldPaint = Paint().apply {
         isAntiAlias = false                   // pass true does not make change
         color = Color.BLACK
@@ -84,24 +100,27 @@ class MyCanvasView @JvmOverloads constructor(
         textAlign = Paint.Align.CENTER
         setPadding(0, 0, 0, 20)
     }
-    var widthView = 0f
-    var heightView = 0f
-    var textSizeParam: Float? = null
+    private var widthView = 0f
+    private var textSizeParam: Float? = null
+    private var centerTextSizeParam: Float? = null
 
     init {
         val typeArray = context.obtainStyledAttributes(
-            attrs, R.styleable.MyCanvasView, defStyleAttr, defStyleAttr
+            attrs, R.styleable.MyRadarChartView, defStyleAttr, defStyleAttr
         )
 
         attrs?.let {
-            widthView = typeArray.getDimension(R.styleable.MyCanvasView_size, 0f)
-            textSizeParam = typeArray.getDimension(R.styleable.MyCanvasView_text_size, 0f)
-            dataWidth = typeArray.getDimension(R.styleable.MyCanvasView_data_width, 0f)
-            webWidth= typeArray.getDimension(R.styleable.MyCanvasView_web_width, 0f)
-            textColor = typeArray.getColor(R.styleable.MyCanvasView_text_color, 0)
-            dataColor = typeArray.getColor(R.styleable.MyCanvasView_data_color, 0)
-            webColor = typeArray.getColor(R.styleable.MyCanvasView_web_color, 0)
+            widthView = typeArray.getDimension(R.styleable.MyRadarChartView_size, 0f)
+            textSizeParam = typeArray.getDimension(R.styleable.MyRadarChartView_text_size, 20f)
+            centerTextSizeParam =
+                typeArray.getDimension(R.styleable.MyRadarChartView_text_center_size, 20f)
+            dataWidth = typeArray.getDimension(R.styleable.MyRadarChartView_data_width, 1f)
+            webWidth = typeArray.getDimension(R.styleable.MyRadarChartView_web_width, 1f)
+            textColor = typeArray.getColor(R.styleable.MyRadarChartView_text_color, 0)
+            dataColor = typeArray.getColor(R.styleable.MyRadarChartView_data_color, 0)
+            webColor = typeArray.getColor(R.styleable.MyRadarChartView_web_color, 0)
         }
+
         webBoldPaint.apply {
             strokeWidth = webWidth*2.5f
             color = webColor
@@ -116,6 +135,10 @@ class MyCanvasView @JvmOverloads constructor(
         }
         textPaint.apply {
             textSize = textSizeParam ?: 20f
+            color = textColor
+        }
+        centerTextPaint.apply {
+            textSize = centerTextSizeParam ?: 20f
             color = textColor
         }
         textBoldPaint.apply {
@@ -148,7 +171,7 @@ class MyCanvasView @JvmOverloads constructor(
 
     private fun setRadarSize(value: Int) {
         size = value
-        yLineSpace = ((size) / line).toFloat()
+        yLineSpace = ((size) / xLineNumber).toFloat()
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -156,35 +179,36 @@ class MyCanvasView @JvmOverloads constructor(
         val midY = (height / 2).toFloat()
 
         //draw web
-        drawWeb(midX, midY)
-        drawYAxis(midX, midY)
+        drawWeb(canvas, midX, midY)
+        drawYAxis(canvas, midX, midY)
         drawData(canvas, midX, midY)
-        drawLabel(midX, midY, canvas)
+        drawLabel(canvas, midX, midY)
     }
 
     private fun drawData(canvas: Canvas, midX: Float, midY: Float) {
-        canvas.drawPath(p, webBoldPaint)
-        canvas.drawPath(p1, webThinPaint)
-        val pa = Path()
-        var first = Pair(0f, 0f)
+
+        val pData = Path()
+        var startPoint = Pair(0f, 0f)
+        if (data?.size != 5) return
         data?.forEachIndexed { i, value ->
-            val x = getPosition(Pair(midX, midY), yLineSpace * 10 / 5 * value, i * 72)
-            canvas.drawCircle(x.first, x.second, dataPointPaint.strokeWidth*2, dataPointPaint)
+            val x = getPosition(Pair(midX, midY), yLineSpace * 10 / 5 * value, i * corner)
+            canvas.drawCircle(x.first, x.second, dataPointPaint.strokeWidth * 2, dataPointPaint)
             if (i == 0) {
-                pa.moveTo(x.first, x.second)
-                first = x
+                pData.moveTo(x.first, x.second)
+                startPoint = x
             } else {
-                pa.lineTo(x.first, x.second)
+                pData.lineTo(x.first, x.second)
             }
             canvas.drawCircle(x.first, x.second, 10f, dataPointPaint)
-            if (i == data!!.size - 1) pa.lineTo(first.first, first.second)
+            if (i == data!!.size - 1) pData.lineTo(startPoint.first, startPoint.second)
         }
 
-        canvas.drawPath(pa, dataFillPaint)
-        canvas.drawPath(pa, dataPaint)
+        canvas.drawPath(pData, dataFillPaint)
+        canvas.drawPath(pData, dataPaint)
     }
 
-    private fun drawLabel(midX: Float, midY: Float, canvas: Canvas) {
+    private fun drawLabel(canvas: Canvas, midX: Float, midY: Float) {
+        //(-0.2: move point near to y0)
         val xLabelTop =
             getPosition(Pair(midX, midY), yLineSpace * 10f + getTextSize() * (-0.2F), 0 * 72)
         (xLabelTop.first to xLabelTop.second).apply {
@@ -200,8 +224,9 @@ class MyCanvasView @JvmOverloads constructor(
                 textBoldPaint)
         }
         val xLabelTopRight =
-            getPosition(Pair(midX, midY), yLineSpace * 10f + getTextSize() * 1f, 1 * 72)
+            getPosition(Pair(midX, midY), yLineSpace * 10f + getTextSize() * 1f, 1 * corner)
         (xLabelTopRight.first to xLabelTopRight.second).apply {
+            //0.2 :  move bottom 0.2*textSize
             canvas.drawText(
                 labelTopRight,
                 this.first,
@@ -214,9 +239,9 @@ class MyCanvasView @JvmOverloads constructor(
                 textBoldPaint
             )
         }
-
+//        1.45 : move far away bottom right point
         val xLabelBottomRight =
-            getPosition(Pair(midX, midY), yLineSpace * 10f + getTextSize() * 1.45f, 2 * 72)
+            getPosition(Pair(midX, midY), yLineSpace * 10f + getTextSize() * 1.45f, 2 * corner)
         (xLabelBottomRight.first to xLabelBottomRight.second).apply {
             canvas.drawText(
                 labelBottomRight,
@@ -230,7 +255,7 @@ class MyCanvasView @JvmOverloads constructor(
                 textBoldPaint)
         }
         val xLabelBottomLeft =
-            getPosition(Pair(midX, midY), yLineSpace * 10f + getTextSize() * 1.45f, 3 * 72)
+            getPosition(Pair(midX, midY), yLineSpace * 10f + getTextSize() * 1.45f, 3 * corner)
         (xLabelBottomLeft.first to xLabelBottomLeft.second).apply {
             canvas.drawText(
                 labelBottomLeft,
@@ -244,7 +269,7 @@ class MyCanvasView @JvmOverloads constructor(
                 textBoldPaint)
         }
         val xLabelTopLeft =
-            getPosition(Pair(midX, midY), yLineSpace * 10f + getTextSize() * 0.8f, 4 * 72)
+            getPosition(Pair(midX, midY), yLineSpace * 10f + getTextSize() * 0.8f, 4 * corner)
         (xLabelTopLeft.first to xLabelTopLeft.second).apply {
             canvas.drawText(
                 labelTopLeft,
@@ -257,31 +282,53 @@ class MyCanvasView @JvmOverloads constructor(
                 this.second + (textSizeParam ?: 20f) * (textLineSpace - 0.2f),
                 textBoldPaint)
         }
-    }
-
-    private fun drawYAxis(midX: Float, midY: Float) {
-        for (i in 0..4) {
-            p.moveTo(midX, midY)
-            val x = getPosition(Pair(midX, midY), (yLineSpace * line), 72 * i)
-            p.lineTo(x.first, x.second)
+        //draw center Label
+        (midX to midY).apply {
+            centerTextPaint.isFakeBoldText = false
+//            0.4f move to bottom 0.4
+            canvas.drawText(
+                centerLabel,
+                this.first,
+                this.second - (textSizeParam ?: 20f) * 0.4f,
+                centerTextPaint
+            )
+            centerTextPaint.isFakeBoldText = true
+            canvas.drawText(data?.let { it[4].toString() } ?: "_",
+                this.first,
+                this.second + (textSizeParam ?: 20f) * (textLineSpace - 0.4f),
+                centerTextPaint)
         }
     }
 
-    private fun drawWeb(midX: Float, midY: Float) {
-        for (line in 0..line) {
+    private fun drawYAxis(canvas: Canvas, midX: Float, midY: Float) {
+        val path = Path()
+        for (i in 0 until yLineNumber) {
+            path.moveTo(midX, midY)
+            val x = getPosition(Pair(midX, midY), (yLineSpace * xLineNumber), corner * i)
+            path.lineTo(x.first, x.second)
+        }
+        canvas.drawPath(path, webBoldPaint)
+    }
+
+    private fun drawWeb(canvas: Canvas, midX: Float, midY: Float) {
+        val p = Path() // strokePath
+        val p1 = Path()
+        for (line in 0..xLineNumber) {
             if (line % 2 == 1) {
                 p1.drawWebLine(midX, midY, line)
             } else {
                 p.drawWebLine(midX, midY, line)
             }
         }
+        canvas.drawPath(p, webBoldPaint)
+        canvas.drawPath(p1, webThinPaint)
     }
 
     private fun Path.drawWebLine(midX: Float, midY: Float, line: Int) {
         val start = getPosition(Pair(midX, midY), yLineSpace * line, 0)
         moveTo(start.first, start.second)
-        for (i in 0..5) {
-            val x = getPosition(Pair(midX, midY), (yLineSpace * line), 72 * i)
+        for (i in 0..yLineNumber) {
+            val x = getPosition(Pair(midX, midY), (yLineSpace * line), corner * i)
             lineTo(x.first, x.second)
         }
     }
@@ -293,8 +340,8 @@ class MyCanvasView @JvmOverloads constructor(
         dist: Float,
         angle: Int
     ): Pair<Float, Float> {
-        val x = (center.first + dist * Math.cos(Math.toRadians(angle.toDouble() + 270)))
-        val y = (center.second + dist * Math.sin(Math.toRadians(angle.toDouble() + 270)))
+        val x = (center.first + dist * Math.cos(Math.toRadians(angle.toDouble() + MAGICAL_CORNER)))
+        val y = (center.second + dist * Math.sin(Math.toRadians(angle.toDouble() + MAGICAL_CORNER)))
         return Pair(x.toFloat(), y.toFloat())
     }
 
@@ -311,6 +358,12 @@ class MyCanvasView @JvmOverloads constructor(
         labelBottomRight = bottomRight
         labelBottomLeft = bottomLeft
         labelTopLeft = topLeft
+        invalidate()
+    }
+
+    fun setCenter(label: String, value: Float) {
+        centerLabel = label
+        centerValue = value
         invalidate()
     }
 
