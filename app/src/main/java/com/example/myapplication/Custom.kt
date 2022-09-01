@@ -9,26 +9,37 @@ import android.util.AttributeSet
 import android.view.View
 import kotlin.math.min
 
-class MyCanvasView @JvmOverloads constructor(
+class MyRadarChartView @JvmOverloads constructor(
     mContext: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
-) :
-    View(mContext, attrs, defStyleAttr) {
+) : View(mContext, attrs, defStyleAttr) {
 
-    private var p = Path() // strokePath
-    private var p1 = Path()
+    companion object {
+        const val MAGICAL_CORNER = 270
+        const val yLineNumber = 5
+        const val xLineNumber = 10
+        const val maxValue = 5f
+    }
+
+
     private var size = 300
-    private var pointCenter = size * 0.0875f //35
-    private var pointCenterY = size * 0.03f //12
-    private var pointBotX = size * 0.0525f //21
-    private var pointBotY = size * 0.075f //30
-    private var pointLineX = size * 0.2375f //30
-    private var pointLineBotX = size * 0.0375f //15
-    private var pointLineCenterY = size * 0.1125f //45
-    private var pointLineBotY = size * 0.02f //45
-
-    var webColor: Int? = null
+    private val textLineSpace = 1.5f
+    private var yLineSpace = ((size * 0.4) / xLineNumber).toFloat()
+    private var webColor = Color.LTGRAY
+    private var labelTop = ""
+    private var labelTopRight = ""
+    private var labelBottomRight = ""
+    private var labelBottomLeft = ""
+    private var labelTopLeft = ""
+    private var centerLabel = ""
+    private var data: List<Float>? = null
+    private var centerValue: Float? = null
+    private var dataWidth = 5f
+    private var webWidth = 2f
+    private var dataColor = Color.CYAN
+    private var textColor = Color.BLACK
+    private val corner = 360/ yLineNumber
 
     private val webBoldPaint = Paint().apply {
         isAntiAlias = false                   // pass true does not make change
@@ -36,10 +47,29 @@ class MyCanvasView @JvmOverloads constructor(
         strokeWidth = 5f
         style = Paint.Style.STROKE
     }
+    private val dataPaint = Paint().apply {
+        isAntiAlias = false                   // pass true does not make change
+        color = webColor ?: Color.CYAN
+        strokeWidth = 5f
+        style = Paint.Style.STROKE
+    }
+    private val dataPointPaint = Paint().apply {
+        isAntiAlias = false                   // pass true does not make change
+        color = Color.CYAN
+        strokeWidth = 5f
+        style = Paint.Style.FILL
+    }
+    private val dataFillPaint = Paint().apply {
+        isAntiAlias = false                   // pass true does not make change
+        color = Color.CYAN
+        strokeWidth = 5f
+        style = Paint.Style.FILL
+        alpha = 60
+    }
 
     private val webThinPaint = Paint().apply {
         isAntiAlias = false                   // pass true does not make change
-        color = webColor ?: Color.LTGRAY
+        color = Color.LTGRAY
         strokeWidth = 2f
         style = Paint.Style.STROKE
     }
@@ -48,26 +78,87 @@ class MyCanvasView @JvmOverloads constructor(
         isAntiAlias = false                   // pass true does not make change
         color = Color.BLACK
         style = Paint.Style.FILL
-        textSize = textSizeParam ?: 20f
+        textSize = 20f
         textAlign = Paint.Align.CENTER
-        setPadding(0,0,0, 20)
+        setPadding(0, 0, 0, 20)
     }
 
-    val line = 10
-    var widthView = 0f
-    var heightView = 0f
-    var textSizeParam: Float? = null
+    private val centerTextPaint = Paint().apply {
+        isAntiAlias = false                   // pass true does not make change
+        color = Color.BLACK
+        style = Paint.Style.FILL
+        textSize = 20f
+        textAlign = Paint.Align.CENTER
+        setPadding(0, 0, 0, 20)
+    }
+
+    private val textBoldPaint = Paint().apply {
+        isAntiAlias = false                   // pass true does not make change
+        color = Color.BLACK
+        style = Paint.Style.FILL
+        textSize = 20f
+        textAlign = Paint.Align.CENTER
+        setPadding(0, 0, 0, 20)
+    }
+    private var widthView = 0f
+    private var textSizeParam: Float? = null
+    private var centerTextSizeParam: Float? = null
 
     init {
         val typeArray = context.obtainStyledAttributes(
-            attrs, R.styleable.MyCanvasView, defStyleAttr, defStyleAttr
+            attrs, R.styleable.MyRadarChartView, defStyleAttr, defStyleAttr
         )
 
         attrs?.let {
-            widthView = typeArray.getDimension(R.styleable.MyCanvasView_size, 0f)
-            textSizeParam = typeArray.getDimension(R.styleable.MyCanvasView_text_size, 0f)
+            widthView = typeArray.getDimension(R.styleable.MyRadarChartView_size, 0f)
+            textSizeParam = typeArray.getDimension(R.styleable.MyRadarChartView_text_size, 20f)
+            centerTextSizeParam =
+                typeArray.getDimension(R.styleable.MyRadarChartView_text_center_size, 20f)
+            dataWidth = typeArray.getDimension(R.styleable.MyRadarChartView_data_width, 1f)
+            webWidth = typeArray.getDimension(R.styleable.MyRadarChartView_web_width, 1f)
+            textColor = typeArray.getColor(R.styleable.MyRadarChartView_text_color, 0)
+            dataColor = typeArray.getColor(R.styleable.MyRadarChartView_data_color, 0)
+            webColor = typeArray.getColor(R.styleable.MyRadarChartView_web_color, 0)
         }
 
+        webBoldPaint.apply {
+            strokeWidth = webWidth*2.5f
+            color = webColor
+        }
+        webThinPaint.apply {
+            strokeWidth = webWidth
+            color = webColor
+        }
+        textPaint.apply {
+            textSize = textSizeParam ?: 20f
+            color = webColor
+        }
+        textPaint.apply {
+            textSize = textSizeParam ?: 20f
+            color = textColor
+        }
+        centerTextPaint.apply {
+            textSize = centerTextSizeParam ?: 20f
+            color = textColor
+        }
+        textBoldPaint.apply {
+            textSize = textSizeParam ?: 20f
+            color = textColor
+        }
+        dataPaint.apply {
+            color = dataColor
+            strokeWidth = dataWidth
+        }
+        dataPointPaint.apply {
+            color = dataColor
+            strokeWidth = dataWidth
+        }
+
+        dataFillPaint.apply {
+            color = dataColor
+            strokeWidth = dataWidth
+            alpha = 80
+        }
         typeArray.recycle()
     }
 
@@ -80,14 +171,7 @@ class MyCanvasView @JvmOverloads constructor(
 
     private fun setRadarSize(value: Int) {
         size = value
-        pointCenter = size * 0.0875f //35
-        pointCenterY = size * 0.03f //12
-        pointBotX = size * 0.0525f //21
-        pointBotY = size * 0.075f //30
-        pointLineX = size * 0.2375f //30
-        pointLineBotX = size * 0.0375f //15
-        pointLineCenterY = size * 0.1125f //45
-        pointLineBotY = size * 0.02f //45
+        yLineSpace = ((size) / xLineNumber).toFloat()
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -95,113 +179,200 @@ class MyCanvasView @JvmOverloads constructor(
         val midY = (height / 2).toFloat()
 
         //draw web
-        drawWeb(midX, midY)
-        drawYAxis(midX, midY)
+        drawWeb(canvas, midX, midY)
+        drawYAxis(canvas, midX, midY)
+        drawData(canvas, midX, midY)
+        drawLabel(canvas, midX, midY)
+    }
 
-        canvas.drawPath(p, webBoldPaint)
-        canvas.drawPath(p1, webThinPaint)
+    private fun drawData(canvas: Canvas, midX: Float, midY: Float) {
 
-        // TODO: params text and point, constant distance
-        (midX to midY - defaultPointFirst - (pointCenter * line) - extrasDistance).apply {
-            canvas.drawText("価格", this.first, this.second - 30, textPaint)
-            canvas.drawText("4.0", this.first, this.second - 5, textPaint)
+        val pData = Path()
+        var startPoint = Pair(0f, 0f)
+        if (data?.size != 5) return
+        data?.forEachIndexed { i, value ->
+            val x = getPosition(Pair(midX, midY), yLineSpace * 10 / 5 * value, i * corner)
+            canvas.drawCircle(x.first, x.second, dataPointPaint.strokeWidth * 2, dataPointPaint)
+            if (i == 0) {
+                pData.moveTo(x.first, x.second)
+                startPoint = x
+            } else {
+                pData.lineTo(x.first, x.second)
+            }
+            canvas.drawCircle(x.first, x.second, 10f, dataPointPaint)
+            if (i == data!!.size - 1) pData.lineTo(startPoint.first, startPoint.second)
         }
 
-        (midX + defaultLineFirst.first + (pointCenter * line) - extrasDistance to midY + defaultLineFirst.second - (pointCenterY * line) - extrasDistance).apply {
-            canvas.drawText("見た目", this.first + 20, this.second - 30, textPaint)
-            canvas.drawText("4.5", this.first + 20, this.second - 5, textPaint)
-        }
+        canvas.drawPath(pData, dataFillPaint)
+        canvas.drawPath(pData, dataPaint)
+    }
 
-        (midX + defaultLineSecond.first + (pointBotX * line) - extrasDistance to midY + defaultLineSecond.second + (pointBotY * line)).apply {
-            canvas.drawText("接客", this.first + 20, this.second + 20, textPaint)
-            canvas.drawText("1.5", this.first + 20, this.second + 45, textPaint)
+    private fun drawLabel(canvas: Canvas, midX: Float, midY: Float) {
+        //(-0.2: move point near to y0)
+        val xLabelTop =
+            getPosition(Pair(midX, midY), yLineSpace * 10f + getTextSize() * (-0.2F), 0 * 72)
+        (xLabelTop.first to xLabelTop.second).apply {
+            canvas.drawText(
+                labelTop,
+                this.first,
+                this.second - (textSizeParam ?: 20f) * textLineSpace,
+                textPaint
+            )
+            canvas.drawText(data?.let { it[0].toString() } ?: "_",
+                this.first,
+                this.second,
+                textBoldPaint)
         }
-
-        (midX - defaultLineThird.first - (pointBotX * line) + extrasDistance to midY + defaultLineThird.second + (pointBotY * line) + extrasDistance).apply {
-            canvas.drawText("居心地", this.first, this.second + 20, textPaint)
-            canvas.drawText("3.0", this.first, this.second + 45 , textPaint)
+        val xLabelTopRight =
+            getPosition(Pair(midX, midY), yLineSpace * 10f + getTextSize() * 1f, 1 * corner)
+        (xLabelTopRight.first to xLabelTopRight.second).apply {
+            //0.2 :  move bottom 0.2*textSize
+            canvas.drawText(
+                labelTopRight,
+                this.first,
+                this.second - (textSizeParam ?: 20f) * 0.2f,
+                textPaint
+            )
+            canvas.drawText(data?.let { it[1].toString() } ?: "_",
+                this.first,
+                this.second + (textSizeParam ?: 20f) * (textLineSpace - 0.2f),
+                textBoldPaint
+            )
         }
-
-        (midX - defaultLineFourth.first - (pointCenter * line) + extrasDistance to midY + defaultLineFourth.second - (pointCenterY * line) - extrasDistance).apply {
-            canvas.drawText("価格", this.first - 20, this.second - 30, textPaint)
-            canvas.drawText("4.0", this.first - 20, this.second - 5, textPaint)
+//        1.45 : move far away bottom right point
+        val xLabelBottomRight =
+            getPosition(Pair(midX, midY), yLineSpace * 10f + getTextSize() * 1.45f, 2 * corner)
+        (xLabelBottomRight.first to xLabelBottomRight.second).apply {
+            canvas.drawText(
+                labelBottomRight,
+                this.first,
+                this.second,
+                textPaint
+            )
+            canvas.drawText(data?.let { it[2].toString() } ?: "_",
+                this.first,
+                this.second + (textSizeParam ?: 20f) * textLineSpace,
+                textBoldPaint)
+        }
+        val xLabelBottomLeft =
+            getPosition(Pair(midX, midY), yLineSpace * 10f + getTextSize() * 1.45f, 3 * corner)
+        (xLabelBottomLeft.first to xLabelBottomLeft.second).apply {
+            canvas.drawText(
+                labelBottomLeft,
+                this.first,
+                this.second,
+                textPaint
+            )
+            canvas.drawText(data?.let { it[3].toString() } ?: "_",
+                this.first,
+                this.second + (textSizeParam ?: 20f) * textLineSpace,
+                textBoldPaint)
+        }
+        val xLabelTopLeft =
+            getPosition(Pair(midX, midY), yLineSpace * 10f + getTextSize() * 0.8f, 4 * corner)
+        (xLabelTopLeft.first to xLabelTopLeft.second).apply {
+            canvas.drawText(
+                labelTopLeft,
+                this.first,
+                this.second - (textSizeParam ?: 20f) * 0.2f,
+                textPaint
+            )
+            canvas.drawText(data?.let { it[4].toString() } ?: "_",
+                this.first,
+                this.second + (textSizeParam ?: 20f) * (textLineSpace - 0.2f),
+                textBoldPaint)
+        }
+        //draw center Label
+        (midX to midY).apply {
+            centerTextPaint.isFakeBoldText = false
+//            0.4f move to bottom 0.4
+            canvas.drawText(
+                centerLabel,
+                this.first,
+                this.second - (textSizeParam ?: 20f) * 0.4f,
+                centerTextPaint
+            )
+            centerTextPaint.isFakeBoldText = true
+            canvas.drawText(data?.let { it[4].toString() } ?: "_",
+                this.first,
+                this.second + (textSizeParam ?: 20f) * (textLineSpace - 0.4f),
+                centerTextPaint)
         }
     }
 
-    private fun drawYAxis(midX: Float, midY: Float) {
-        //line (12h)
-        p.moveTo(midX, midY)
-        p.lineTo(midX, midY - defaultPointFirst - (pointCenter * line) - extrasDistance)
-
-        //line (2h)
-        p.moveTo(midX, midY)
-        p.lineTo(
-            midX + defaultLineFirst.first + (pointCenter * line) - extrasDistance,
-            midY + defaultLineFirst.second - (pointCenterY * line) - extrasDistance
-
-        )
-
-
-        //line 5h
-        p.moveTo(midX, midY)
-        p.lineTo(
-            midX + defaultLineSecond.first + (pointBotX * line) - extrasDistance,
-            midY + defaultLineSecond.second + (pointBotY * line)
-        )
-
-        //line 7h
-        p.moveTo(midX, midY)
-        p.lineTo(
-            midX - defaultLineThird.first - (pointBotX * line) + extrasDistance,
-            midY + defaultLineThird.second + (pointBotY * line) + extrasDistance
-        )
-
-        //line 10h
-        p.moveTo(midX, midY)
-        p.lineTo(
-            midX - defaultLineFourth.first - (pointCenter * line) + extrasDistance,
-            midY + defaultLineFourth.second - (pointCenterY * line) - extrasDistance
-        )
+    private fun drawYAxis(canvas: Canvas, midX: Float, midY: Float) {
+        val path = Path()
+        for (i in 0 until yLineNumber) {
+            path.moveTo(midX, midY)
+            val x = getPosition(Pair(midX, midY), (yLineSpace * xLineNumber), corner * i)
+            path.lineTo(x.first, x.second)
+        }
+        canvas.drawPath(path, webBoldPaint)
     }
 
-    private fun drawWeb(midX: Float, midY: Float) {
-        for (line in 0..line) {
+    private fun drawWeb(canvas: Canvas, midX: Float, midY: Float) {
+        val p = Path() // strokePath
+        val p1 = Path()
+        for (line in 0..xLineNumber) {
             if (line % 2 == 1) {
                 p1.drawWebLine(midX, midY, line)
             } else {
                 p.drawWebLine(midX, midY, line)
             }
         }
+        canvas.drawPath(p, webBoldPaint)
+        canvas.drawPath(p1, webThinPaint)
     }
 
     private fun Path.drawWebLine(midX: Float, midY: Float, line: Int) {
-        moveTo(midX, midY - defaultPointFirst - (pointCenter * line)) //  30
-        lineTo(
-            midX + defaultLineFirst.first + (pointCenter * line),
-            midY + defaultLineFirst.second - (pointCenterY * line)
-        ) // x : 30, y : 5
-        lineTo(
-            midX + defaultLineSecond.first + (pointBotX * line),
-            midY + defaultLineSecond.second + (pointBotY * line)
-        )  // x : 15, y : 30
-        lineTo(
-            midX - defaultLineThird.first - (pointBotX * line),
-            midY + defaultLineThird.second + (pointBotY * line)
-        ) // x : 15, y : 30
-        lineTo(
-            midX - defaultLineFourth.first - (pointCenter * line),
-            midY + defaultLineFourth.second - (pointCenterY * line)
-        ) // x : 30, y : 5
-        lineTo(midX, midY - defaultPointFirst - (pointCenter * line))
+        val start = getPosition(Pair(midX, midY), yLineSpace * line, 0)
+        moveTo(start.first, start.second)
+        for (i in 0..yLineNumber) {
+            val x = getPosition(Pair(midX, midY), (yLineSpace * line), corner * i)
+            lineTo(x.first, x.second)
+        }
     }
 
-    companion object {
-        const val defaultPointFirst = 25
-        const val extrasDistance = 2
+    private fun getTextSize() = textSizeParam ?: 0f
 
-        val defaultLineFirst: Pair<Int, Int> = Pair(25, -10)
-        val defaultLineSecond: Pair<Int, Int> = Pair(15, 20)
-        val defaultLineThird: Pair<Int, Int> = Pair(15, 20)
-        val defaultLineFourth: Pair<Int, Int> = Pair(25, -10)
+    private fun getPosition(
+        center: Pair<Float, Float>,
+        dist: Float,
+        angle: Int
+    ): Pair<Float, Float> {
+        val x = (center.first + dist * Math.cos(Math.toRadians(angle.toDouble() + MAGICAL_CORNER)))
+        val y = (center.second + dist * Math.sin(Math.toRadians(angle.toDouble() + MAGICAL_CORNER)))
+        return Pair(x.toFloat(), y.toFloat())
+    }
+
+    // public function
+    fun setLabel(
+        top: String = "",
+        topRight: String = "",
+        bottomRight: String = "",
+        bottomLeft: String = "",
+        topLeft: String = "",
+    ) {
+        labelTop = top
+        labelTopRight = topRight
+        labelBottomRight = bottomRight
+        labelBottomLeft = bottomLeft
+        labelTopLeft = topLeft
+        invalidate()
+    }
+
+    fun setCenter(label: String, value: Float) {
+        centerLabel = label
+        centerValue = value
+        invalidate()
+    }
+
+    fun setData(data: List<Float>) {
+        if (data.size != 5) {
+            this.data = null
+        } else {
+            this.data = data
+        }
+        invalidate()
     }
 }

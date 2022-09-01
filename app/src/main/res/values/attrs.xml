@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <declare-styleable name="MyCanvasView">
-        <attr name="size" format="dimension"/>
-        <attr name="text_size" format="dimension"/>
-
+    <declare-styleable name="MyRadarChartView">
+        <attr name="size" format="dimension" />
+        <attr name="text_size" format="dimension" />
+        <attr name="text_center_size" format="dimension"/>
+        <attr name="text_color" format="color" />
+        <attr name="data_color" format="color" />
+        <attr name="web_color" format="color" />
+        <attr name="data_width" format="dimension" />
+        <attr name="web_width" format="dimension" />
     </declare-styleable>
 </resources>
